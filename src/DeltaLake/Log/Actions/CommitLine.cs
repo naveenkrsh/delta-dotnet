@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 using Parquet.Serialization.Attributes;
 
 namespace DeltaLake.Log.Actions {
-    class CommitLine {
+    public class CommitLine {
 
         [JsonPropertyName("txn")]
         public TransactionIdentifiers? Txn { get; set; }

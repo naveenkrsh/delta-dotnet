@@ -6,7 +6,7 @@ using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace DeltaLake.Log.Actions {
-     class TransactionIdentifiers {
+     public class TransactionIdentifiers {
 
         /// <summary>
         /// A unique identifier for the application performing the transaction

@@ -5,3 +5,5 @@ bin/
 *.swp
 *.iml
 launchSettings.json
+src/DeltaLake.sln.DotSettings.user
+**.DS_Store

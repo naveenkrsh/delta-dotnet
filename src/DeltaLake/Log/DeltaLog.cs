@@ -1,10 +1,12 @@
-﻿using System.Text.Json;
+﻿using System.Text;
+using System.Text.Json;
 using DeltaLake.Log.Actions;
+using DeltaLake.Util;
 using Parquet.Serialization;
 using Stowage;
+using Action = DeltaLake.Log.Actions.Action;
 
 namespace DeltaLake.Log {
-
     public class LogEntry {
         public LogEntry(IOEntry commitFile) {
             Entry = commitFile;
@@ -41,11 +43,11 @@ namespace DeltaLake.Log {
     /// Implements delta log protocol as per https://github.com/delta-io/delta/blob/master/PROTOCOL.md#delta-log-entries
     /// </summary>
     public class DeltaLog {
-
         public const string DeltaLogDirName = "_delta_log";
         public const string LastCheckpointFileName = "_last_checkpoint";
 
         private readonly IFileStorage _storage;
+
         private readonly IOPath _location;
         //private readonly List<IOEntry> _entries = new List<IOEntry>();
         //private readonly List<Action> _actions = new List<Action>();
@@ -98,8 +100,8 @@ namespace DeltaLake.Log {
                     throw new ApplicationException("unparseable action: " + jsonLine);
 
                 commit.Actions.Add(cl.ToAction());
-
             }
+
             return commit;
         }
 
@@ -130,13 +132,11 @@ namespace DeltaLake.Log {
         }
 
         public async Task<IReadOnlyCollection<LogCommit>> ReadHistoryAsync() {
-
             var commits = new List<LogCommit>();
             IReadOnlyCollection<LogEntry> entries = await ListLogEntries();
             entries = CompactLogEntries(entries);
 
             foreach(LogEntry entry in entries) {
-
                 if(entry.IsJson) {
                     commits.Add(await ReadJsonAsCommit(entry));
                 } else if(entry.IsLastCheckpoint) {
@@ -150,6 +150,26 @@ namespace DeltaLake.Log {
             }
 
             return commits;
+        }
+        
+        public async Task WriteJsonAsCommitAsync(List<CommitLine> commitLines, int version) {
+            string deltaFile = FileNames.DeltaFile(DeltaLogDirName, 0);
+            var tempFile = new IOPath("tmp", Guid.NewGuid().ToString());
+            await using Stream stream = await  _storage.OpenWrite(tempFile);
+            {
+                await using var writer = new StreamWriter(stream);
+                foreach(CommitLine commit in commitLines) {
+                    string s = JsonSerializer.Serialize(commit, new JsonSerializerOptions() {
+                        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+                        Encoder = System.Text.Encodings.Web.JavaScriptEncoder
+                            .UnsafeRelaxedJsonEscaping,
+                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                    });
+                    await writer.WriteLineAsync(s);
+                }
+            }
+
+            await _storage.Ren(tempFile,new IOPath(_location,deltaFile));
         }
     }
 }

@@ -30,5 +30,17 @@ namespace DeltaLake.Test {
 
             Assert.Equal(275, artists.Count);
         }
+        
+        [Fact]
+        public async Task ArtistSimple_IsDelta() {
+            bool isDelta = await Table.IsDeltaTableAsync(_storage, new IOPath("chinook", "artist.simple"));
+            Assert.True(isDelta);
+        }
+        
+        [Fact]
+        public async Task ArtistSimpleParquet_IsNotDelta() {
+            bool isDelta = await Table.IsDeltaTableAsync(_storage, new IOPath("chinook", "artist.simple.parquet"));
+            Assert.False(isDelta);
+        }
     }
 }
