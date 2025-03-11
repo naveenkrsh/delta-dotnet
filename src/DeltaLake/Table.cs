@@ -124,20 +124,7 @@ namespace DeltaLake {
             }
             return src;
         }
-        
-        /// <summary>
-        /// Returns True if a Delta Table exists at specified path. Returns False otherwise
-        /// </summary>
-        /// <param name="storage"></param>
-        /// <param name="location"></param>
-        /// <returns></returns>
-        public static async Task<bool> IsDeltaTableAsync(IFileStorage storage, IOPath location) {
 
-            var log = new DeltaLog(storage, location);
-            IReadOnlyCollection<LogCommit> history = await log.ReadHistoryAsync();
-            
-            return history.Any();
-        }
         public ValueTask DisposeAsync() {
             if(_disposeStorage) {
                 _storage.Dispose();

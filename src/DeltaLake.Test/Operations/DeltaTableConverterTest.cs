@@ -1,12 +1,11 @@
-using Parquet.Serialization;
 using Stowage;
 using Xunit;
 using Op = DeltaLake.Operations.DeltaTableConverter;
-namespace DeltaLake.Test {
-    public class ConvertToDeltaTest {
+namespace DeltaLake.Test.Operations {
+    public class DeltaTableConverterTest {
         private readonly IFileStorage _storage;
 
-        public ConvertToDeltaTest() {
+        public DeltaTableConverterTest() {
             _storage = Files.Of.LocalDisk(Path.GetFullPath(Path.Combine("data")));
         }
 

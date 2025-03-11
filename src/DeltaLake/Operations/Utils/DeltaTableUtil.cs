@@ -3,14 +3,14 @@ using System.Text.Json;
 using DeltaLake.Log.Actions;
 using DeltaLake.Operations.Extensions;
 using DeltaLake.Operations.Models;
-using DeltaLake.Util;
 using Parquet;
 using Parquet.Data;
 using Parquet.Schema;
 using Stowage;
+using Action = DeltaLake.Log.Actions.Action;
 
-namespace DeltaLake.Operations.Helpers {
-    internal static class DeltaTableHelpers {
+namespace DeltaLake.Operations.Utils {
+    internal static class DeltaTableUtil {
 
         public static ParquetSchema MergeSchemas(List<ParquetSchema> schemas, List<Dictionary<string, string>> partitionValuesList) {
 
@@ -54,7 +54,7 @@ namespace DeltaLake.Operations.Helpers {
             return new ParquetSchema(combinedFields);
         }
 
-        public static async Task<DeltaStatistics> CollectStatistics(ParquetReader reader) {
+        public static async Task<DeltaStatistics> CollectStatisticsAsync(ParquetReader reader) {
             var statistics = new DeltaStatistics();
 
             for(int i = 0; i < reader.RowGroupCount; i++) {
@@ -109,7 +109,7 @@ namespace DeltaLake.Operations.Helpers {
         }
 
 
-        public static async Task<ParquetProcessingResult> ProcessParquetFiles(IFileStorage storage, IOPath location, List<IOEntry> parquetFiles) {
+        public static async Task<ParquetProcessingResult> ProcessParquetFilesAsync(IFileStorage storage, IOPath location, List<IOEntry> parquetFiles) {
             var parquetSchemas = new List<ParquetSchema>();
             var partitionValuesList = new List<Dictionary<string, string>>();
             var actions = new List<AddFile>();
@@ -121,10 +121,10 @@ namespace DeltaLake.Operations.Helpers {
                 using ParquetReader reader = await ParquetReader.CreateAsync(stream);
                 parquetSchemas.Add(reader.Schema);
 
-                Dictionary<string, string> partitionValues = HivePartition.ExtractPartitionKeyValues(parquetFile.Path);
+                Dictionary<string, string> partitionValues = HivePartitionUtil.ExtractPartitionKeyValues(parquetFile.Path);
                 partitionValuesList.Add(partitionValues);
 
-                DeltaStatistics statistics = await CollectStatistics(reader);
+                DeltaStatistics statistics = await CollectStatisticsAsync(reader);
                 actions.Add(new AddFile() {
                     Path = parquetFile.Path.ToString().Substring(location.ToString().Length + 1),
                     Size = parquetFile.Size,
@@ -140,16 +140,10 @@ namespace DeltaLake.Operations.Helpers {
             return new ParquetProcessingResult(parquetSchemas, partitionValuesList, actions);
         }
 
-        public class ParquetProcessingResult {
-            public List<ParquetSchema> ParquetSchemas { get; set; }
-            public List<Dictionary<string, string>> PartitionValuesList { get; set; }
-            public List<AddFile> Actions { get; set; }
 
-            public ParquetProcessingResult(List<ParquetSchema> parquetSchemas, List<Dictionary<string, string>> partitionValuesList, List<AddFile> actions) {
-                ParquetSchemas = parquetSchemas;
-                PartitionValuesList = partitionValuesList;
-                Actions = actions;
-            }
+
+        public static void MapActionsToCommitLines(List<Action> actions, List<CommitLine> commitLines) {
+            foreach(Action action in actions)                 commitLines.Add(new CommitLine() { Add = (AddFile)action });
         }
     }
 }

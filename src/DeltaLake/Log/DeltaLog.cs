@@ -1,7 +1,7 @@
 ﻿using System.Text;
 using System.Text.Json;
 using DeltaLake.Log.Actions;
-using DeltaLake.Util;
+using DeltaLake.Operations.Utils;
 using Parquet.Serialization;
 using Stowage;
 using Action = DeltaLake.Log.Actions.Action;
@@ -152,8 +152,8 @@ namespace DeltaLake.Log {
             return commits;
         }
 
-        public async Task WriteJsonAsCommitAsync(List<CommitLine> commitLines, int version) {
-            string deltaFile = FileNames.DeltaFile(DeltaLogDirName, 0);
+        public async Task WriteJsonAsCommitAsync(List<CommitLine> commitLines, long version) {
+            string deltaFile = FileNamesUtil.DeltaFile(DeltaLogDirName, version);
             var tempFile = new IOPath("tmp", Guid.NewGuid().ToString());
             await using Stream stream = await _storage.OpenWrite(tempFile);
             {

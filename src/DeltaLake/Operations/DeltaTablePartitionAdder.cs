@@ -2,14 +2,16 @@
 using DeltaLake.Log;
 using DeltaLake.Log.Actions;
 using DeltaLake.Operations.Exceptions;
-using DeltaLake.Operations.Helpers;
+using DeltaLake.Operations.Models;
+using DeltaLake.Operations.Utils;
 using Stowage;
-using static DeltaLake.Operations.Helpers.DeltaTableHelpers;
 
 namespace DeltaLake.Operations {
-    class DeltaTablePartitionAdder {
-        public static async Task AddPartitionAsync(IFileStorage storage, IOPath location, IOPath partition
-            ) {
+    public class DeltaTablePartitionAdder {
+        public static async Task AddPartitionAsync(IFileStorage storage, IOPath location, IOPath partition) {
+
+            Table table = await Table.OpenAsync(storage, location);
+
             var log = new DeltaLog(storage, location);
             IReadOnlyCollection<LogCommit> history = await log.ReadHistoryAsync();
             if(!history.Any())
@@ -24,19 +26,16 @@ namespace DeltaLake.Operations {
             if(parquetFiles.Count == 0)
                 throw new ParquetFileNotFoundException();
 
-            var actions = new List<System.Action>();
             var commitLines = new List<CommitLine>();
-            JsonElement commitInfo = DeltaTableHelpers.CreateCommitInfo(OperationEnum.MANUAL_UPDATE);
+            JsonElement commitInfo = DeltaTableUtil.CreateCommitInfo(OperationEnum.MANUAL_UPDATE);
             commitLines.Add(new CommitLine() { Commit = commitInfo });
-            var protocolEvolution = new ProtocolEvolution {
-                MinReaderVersion = 1,
-                MinWriterVersion = 2
-            };
 
-            commitLines.Add(new CommitLine() { Protocol = protocolEvolution });
+            ParquetProcessingResult parquetProcessingResult = await DeltaTableUtil.ProcessParquetFilesAsync(storage, location, parquetFiles);
 
-            ParquetProcessingResult parquetProcessingResult = await DeltaTableHelpers.ProcessParquetFiles(storage, location, parquetFiles);
+            //TODO: Check if schema is changed then add the metadata action
 
+            commitLines.AddRange(parquetProcessingResult.GenerateCommitLinesFromActions());
+            await log.WriteJsonAsCommitAsync(commitLines, table.CurrentVersion + 1);
         }
     }
 }
