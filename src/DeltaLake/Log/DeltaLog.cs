@@ -151,11 +151,11 @@ namespace DeltaLake.Log {
 
             return commits;
         }
-        
+
         public async Task WriteJsonAsCommitAsync(List<CommitLine> commitLines, int version) {
             string deltaFile = FileNames.DeltaFile(DeltaLogDirName, 0);
             var tempFile = new IOPath("tmp", Guid.NewGuid().ToString());
-            await using Stream stream = await  _storage.OpenWrite(tempFile);
+            await using Stream stream = await _storage.OpenWrite(tempFile);
             {
                 await using var writer = new StreamWriter(stream);
                 foreach(CommitLine commit in commitLines) {
@@ -168,8 +168,11 @@ namespace DeltaLake.Log {
                     await writer.WriteLineAsync(s);
                 }
             }
-
-            await _storage.Ren(tempFile,new IOPath(_location,deltaFile));
+            try {
+                await _storage.Ren(tempFile, new IOPath(_location, deltaFile));
+            } catch(Exception ex) {
+                await _storage.Rm(tempFile);   
+            }
         }
     }
 }

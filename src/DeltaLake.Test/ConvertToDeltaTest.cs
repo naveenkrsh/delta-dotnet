@@ -1,7 +1,7 @@
 using Parquet.Serialization;
 using Stowage;
 using Xunit;
-using Op = DeltaLake.Operations.Operations;
+using Op = DeltaLake.Operations.DeltaTableConverter;
 namespace DeltaLake.Test {
     public class ConvertToDeltaTest {
         private readonly IFileStorage _storage;
@@ -15,9 +15,20 @@ namespace DeltaLake.Test {
 
             await _storage.Rm(new IOPath("chinook", "artist.simple.parquet", "_delta_log"));
             string tablePath = new IOPath("chinook", "artist.simple.parquet");
-            await  Op.ConvertToDeltaAsync(_storage, tablePath);
+            await  Op.ConvertParquetToDeltaAsync(_storage, tablePath);
             
             Table table = await Table.OpenAsync(_storage,tablePath);
+            Assert.Single(table.History);
+        }
+
+        [Fact]
+        public async Task TrackPartitinedByMediaTypeId() {
+
+            await _storage.Rm(new IOPath("chinook", "track.partitioned.mediatypeid.parquet", "_delta_log"));
+            string tablePath = new IOPath("chinook", "track.partitioned.mediatypeid.parquet");
+            await Op.ConvertParquetToDeltaAsync(_storage, tablePath);
+
+            Table table = await Table.OpenAsync(_storage, tablePath);
             Assert.Single(table.History);
         }
     }
