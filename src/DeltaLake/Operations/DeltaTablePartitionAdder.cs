@@ -9,9 +9,6 @@ using Stowage;
 namespace DeltaLake.Operations {
     public class DeltaTablePartitionAdder {
         public static async Task AddPartitionAsync(IFileStorage storage, IOPath location, IOPath partition) {
-
-            Table table = await Table.OpenAsync(storage, location);
-
             var log = new DeltaLog(storage, location);
             IReadOnlyCollection<LogCommit> history = await log.ReadHistoryAsync();
             if(!history.Any())
@@ -35,6 +32,7 @@ namespace DeltaLake.Operations {
             //TODO: Check if schema is changed then add the metadata action
 
             commitLines.AddRange(parquetProcessingResult.GenerateCommitLinesFromActions());
+            Table table = await Table.OpenAsync(storage, location);
             await log.WriteJsonAsCommitAsync(commitLines, table.CurrentVersion + 1);
         }
     }

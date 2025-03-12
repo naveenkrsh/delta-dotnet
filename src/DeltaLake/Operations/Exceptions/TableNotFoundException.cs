@@ -1,6 +1,6 @@
 ﻿namespace DeltaLake.Operations.Exceptions {
     [Serializable]
-    internal class TableNotFoundException : Exception {
+    public class TableNotFoundException : Exception {
         public TableNotFoundException() {
         }
 

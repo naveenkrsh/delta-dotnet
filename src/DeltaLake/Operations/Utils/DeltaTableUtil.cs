@@ -143,7 +143,9 @@ namespace DeltaLake.Operations.Utils {
 
 
         public static void MapActionsToCommitLines(List<Action> actions, List<CommitLine> commitLines) {
-            foreach(Action action in actions)                 commitLines.Add(new CommitLine() { Add = (AddFile)action });
+            foreach(Action action in actions) {
+                commitLines.Add(new CommitLine() { Add = (AddFile)action });
+            }
         }
     }
 }

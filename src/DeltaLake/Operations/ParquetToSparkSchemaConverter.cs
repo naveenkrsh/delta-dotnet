@@ -24,12 +24,19 @@ namespace DeltaLake.Operations {
                 Type t when t == typeof(bool) => "boolean",       // Map Boolean
                 Type t when t == typeof(double) => "double",      // Map Double
                 Type t when t == typeof(string) => "string",      // Map String
+                Type t when t == typeof(float) => "float",        // Map Float
+                Type t when t == typeof(decimal) => "decimal",    // Map Decimal
+                Type t when t == typeof(DateTime) => "timestamp", // Map DateTime
+                Type t when t == typeof(byte) => "byte",          // Map Byte
+                Type t when t == typeof(short) => "short",        // Map Int16
+                Type t when t == typeof(char) => "char",          // Map Char
                 Type t when t.IsArray && t.GetElementType() != null && t.GetElementType() == typeof(byte) => "binary", // For byte arrays
                 Type t when t.IsArray => "array",                 // ListType to ArrayType (can be extended for specific element types)
                 Type t when t.IsClass => "struct",                // For complex types (e.g., StructType)
                 _ => throw new NotImplementedException($"Mapping for {clrType} is not implemented.")
             };
         }
+
     }
 }
 

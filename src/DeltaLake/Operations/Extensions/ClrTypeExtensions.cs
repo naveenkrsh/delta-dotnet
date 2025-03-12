@@ -13,9 +13,16 @@
                 return Math.Max((decimal)a, (decimal)b);
             else if(clrType == typeof(string))
                 return string.Compare((string)a, (string)b) > 0 ? a : b;
+            else if(clrType == typeof(bool))
+                return ((bool)a || (bool)b) ? a : b;
+            else if(clrType == typeof(DateTime))
+                return ((DateTime)a > (DateTime)b) ? a : b;
+            else if(clrType == typeof(byte))
+                return Math.Max((byte)a, (byte)b);
             else
                 throw new ArgumentException("Unsupported clrType");
         }
+
 
         public static object Min(object a, object b, Type clrType) {
             if(clrType == typeof(int))
@@ -30,9 +37,16 @@
                 return Math.Min((decimal)a, (decimal)b);
             else if(clrType == typeof(string))
                 return string.Compare((string)a, (string)b) < 0 ? a : b;
+            else if(clrType == typeof(bool))
+                return ((bool)a && (bool)b) ? a : b;
+            else if(clrType == typeof(DateTime))
+                return ((DateTime)a < (DateTime)b) ? a : b;
+            else if(clrType == typeof(byte))
+                return Math.Min((byte)a, (byte)b);
             else
                 throw new ArgumentException("Unsupported clrType");
         }
+
 
 
         public static Type InferClrType(this IEnumerable<string> values) {
