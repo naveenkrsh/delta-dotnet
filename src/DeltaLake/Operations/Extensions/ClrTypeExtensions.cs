@@ -46,53 +46,5 @@
             else
                 throw new ArgumentException("Unsupported clrType");
         }
-
-
-
-        public static Type InferClrType(this IEnumerable<string> values) {
-            bool allInt = true;
-            bool allDouble = true;
-            bool allBool = true;
-            bool allDateTime = true;
-            bool allLong = true;
-
-            foreach(string value in values) {
-                if(!int.TryParse(value, out _)) {
-                    allInt = false;
-                }
-                if(!double.TryParse(value, out _)) {
-                    allDouble = false;
-                }
-                if(!bool.TryParse(value, out _)) {
-                    allBool = false;
-                }
-                if(!DateTime.TryParse(value, out _)) {
-                    allDateTime = false;
-                }
-                if(!long.TryParse(value, out _)) {
-                    allLong = false;
-                }
-                if(!allInt && !allDouble && !allBool && !allDateTime && !allLong) {
-                    break;
-                }
-            }
-
-            if(allInt) {
-                return typeof(int);
-            }
-            if(allDouble) {
-                return typeof(double);
-            }
-            if(allBool) {
-                return typeof(bool);
-            }
-            if(allDateTime) {
-                return typeof(DateTime);
-            }
-            if(allLong) {
-                return typeof(long);
-            }
-            return typeof(string);
-        }
     }
 }
