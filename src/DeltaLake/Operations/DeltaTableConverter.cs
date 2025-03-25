@@ -18,12 +18,22 @@ namespace DeltaLake.Operations {
         /// <exception cref="TableAlreadyExistsException"></exception>
         /// <exception cref="ParquetFileNotFoundException"></exception>
         /// <exception cref="InvalidOperationException"></exception>
-        public static async Task ConvertParquetToDeltaAsync(IFileStorage storage, IOPath location) {
+        public static async Task ConvertParquetToDeltaAsync(
+    IFileStorage storage,
+    IOPath location,
+    ParquetSchema? partitionSchema = null,
+    IPartitionStrategy? partitionStrategy = null
+
+    ) {
+            if(partitionStrategy == null)
+                partitionStrategy = new HivePartitionStrategy();
+
             var log = new DeltaLog(storage, location);
             IReadOnlyCollection<LogCommit> history = await log.ReadHistoryAsync();
             if(history.Any()) {
                 throw new TableAlreadyExistsException();
             }
+
             IReadOnlyCollection<IOEntry> files = await storage.Ls(location + "/", true);
 
             var parquetFiles = files
@@ -32,6 +42,11 @@ namespace DeltaLake.Operations {
 
             if(parquetFiles.Count == 0)
                 throw new ParquetFileNotFoundException();
+
+
+            List<Dictionary<string, string>> partitionValuesList = ParquetUtil.ExtractPartitionValues(partitionStrategy, parquetFiles);
+
+            ParquetUtil.ValidateAndEnsurePartitioning(location, partitionSchema, partitionValuesList);
 
             var commitLines = new List<CommitLine>();
 
@@ -44,11 +59,9 @@ namespace DeltaLake.Operations {
             };
             commitLines.Add(new CommitLine() { Protocol = protocolEvolution });
 
-            ParquetProcessingResult parquetProcessingResult = await DeltaTableUtil.ProcessParquetFilesAsync(storage, location, parquetFiles);
+            ParquetProcessingResult parquetProcessingResult = await ParquetUtil.ProcessParquetFilesAsync(storage, location, parquetFiles, partitionStrategy);
 
-            EnsureConsistentPartitioning(parquetProcessingResult);
-
-            ParquetSchema mergedSchema = DeltaTableUtil.MergeSchemas(parquetProcessingResult.ParquetSchemas, parquetProcessingResult.PartitionValuesList);
+            ParquetSchema mergedSchema = ParquetUtil.MergeSchemas(parquetProcessingResult.ParquetSchemas, partitionSchema);
             string schemaString = ParquetToSparkSchemaConverter.ConvertToSparkJsonSchema(mergedSchema);
             var schemaDocument = JsonDocument.Parse(schemaString);
 
@@ -56,27 +69,14 @@ namespace DeltaLake.Operations {
                 Id = Guid.NewGuid().ToString(),
                 SchemaString = JsonSerializer.Serialize(schemaDocument.RootElement),
                 Format = new MetadataFormat(),
-                PartitionColumns = parquetProcessingResult.PartitionValuesList.Any() ? parquetProcessingResult.PartitionValuesList.First().Keys.ToArray() : Array.Empty<string>(),
+                PartitionColumns = partitionValuesList.Any() ? partitionValuesList.First().Keys.ToArray() : Array.Empty<string>(),
                 Configuration = new Dictionary<string, string>()
             };
             commitLines.Add(new CommitLine() { MetaData = metadata });
             commitLines.AddRange(parquetProcessingResult.GenerateCommitLinesFromActions());
             await log.WriteJsonAsCommitAsync(commitLines, 0);
         }
-
-        private static void EnsureConsistentPartitioning(ParquetProcessingResult parquetProcessingResult) {
-            // Select the keys as arrays
-            List<string[]> partitionKeysList = parquetProcessingResult.PartitionValuesList
-            .Select(dict => dict.Keys.ToArray())
-            .ToList();
-            if(partitionKeysList.Count > 1) {
-                string[] firstKeys = partitionKeysList[0];
-                for(int i = 1; i < partitionKeysList.Count; i++) {
-                    if(!firstKeys.SequenceEqual(partitionKeysList[i])) {
-                        throw new InvalidOperationException("All parquet files must have the same partitioning.");
-                    }
-                }
-            }
-        }
     }
+
+ 
 }
