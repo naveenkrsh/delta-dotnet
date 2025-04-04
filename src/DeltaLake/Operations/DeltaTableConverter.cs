@@ -9,16 +9,23 @@ using Stowage;
 using Action = DeltaLake.Log.Actions.Action;
 
 namespace DeltaLake.Operations {
+
+    /// <summary>
+    /// This class is used to convert a Parquet table to a Delta table.
+    /// It will create a Delta table from the Parquet files and write the necessary metadata to the Delta log.
+    /// </summary>
     public class DeltaTableConverter {
         /// <summary>
-        /// Converts a Parquet table to a Delta table.
+        /// This method converts a Parquet table to a Delta table.
+        /// It will create a Delta table from the Parquet files and write the necessary metadata to the Delta log.
         /// </summary>
         /// <param name="storage"></param>
         /// <param name="location"></param>
+        /// <param name="partitionSchema"></param>
+        /// <param name="partitionStrategy"></param>
         /// <returns></returns>
         /// <exception cref="TableAlreadyExistsException"></exception>
         /// <exception cref="ParquetFileNotFoundException"></exception>
-        /// <exception cref="InvalidOperationException"></exception>
         public static async Task ConvertParquetToDeltaAsync(
     IFileStorage storage,
     IOPath location,
@@ -26,8 +33,9 @@ namespace DeltaLake.Operations {
     IPartitionStrategy? partitionStrategy = null
 
     ) {
-            if(partitionStrategy == null)
+            if(partitionStrategy == null){
                 partitionStrategy = new HivePartitionStrategy();
+            }
 
             var log = new DeltaLog(storage, location);
             IReadOnlyCollection<LogCommit> history = await log.ReadHistoryAsync();
@@ -41,9 +49,9 @@ namespace DeltaLake.Operations {
                 .Where(e => e.Path.IsFile && e.Name.EndsWith(".parquet"))
                 .ToList();
 
-            if(parquetFiles.Count == 0)
+            if(parquetFiles.Count == 0){
                 throw new ParquetFileNotFoundException();
-
+            }
 
             List<Dictionary<string, string>> partitionValuesList = ParquetUtil.ExtractPartitionValues(partitionStrategy, parquetFiles);
 
@@ -78,6 +86,4 @@ namespace DeltaLake.Operations {
             await log.WriteJsonAsCommitAsync(actions, 0);
         }
     }
-
- 
 }

@@ -108,16 +108,21 @@ namespace DeltaLake.Operations.Utils {
             var fieldDict = new Dictionary<string, DataField>();
 
             // Iterate through each schema and add its fields to the dictionary
-            foreach(ParquetSchema schema in schemas)
-                foreach(Field field in schema.Fields)
-                    if(field is DataField dataField && !fieldDict.ContainsKey(dataField.Name))
+            foreach(ParquetSchema schema in schemas) {
+                foreach(Field field in schema.Fields) {
+                    if(field is DataField dataField && !fieldDict.ContainsKey(dataField.Name)) {
                         fieldDict.Add(dataField.Name, dataField);
+                    }
+                }
+            }
 
             if(partitionSchema != null) {
                 // Iterate through the partition schema and add its fields to the dictionary
-                foreach(Field field in partitionSchema.Fields)
-                    if(field is DataField dataField && !fieldDict.ContainsKey(dataField.Name))
+                foreach(Field field in partitionSchema.Fields) {
+                    if(field is DataField dataField && !fieldDict.ContainsKey(dataField.Name)) {
                         fieldDict.Add(dataField.Name, dataField);
+                    }
+                }
             }
 
             // Create a new ParquetSchema using the combined fields
@@ -242,17 +247,26 @@ namespace DeltaLake.Operations.Utils {
         }
 
         private static void ValidatePartitionSchema(IOPath location, ParquetSchema? partitionSchema, List<Dictionary<string, string>> partitionValuesList) {
-            if(partitionSchema is not null) {
-                Dictionary<string, string> partitionValues = partitionValuesList.First();
+            if(partitionSchema == null) {
+                return; // No partition schema to validate
+            }
 
-                if(partitionValues.Count != partitionSchema.DataFields.Length) {
-                    throw new InvalidOperationException(location + " does not contain all partition keys.");
-                }
+            Dictionary<string, string> firstPartitionValues = partitionValuesList.First();
 
-                foreach(string key in partitionSchema.DataFields.Select(f => f.Name)) {
-                    if(!partitionValues.ContainsKey(key)) {
-                        throw new InvalidOperationException("Partition values must contain all partition keys.");
-                    }
+            ValidatePartitionKeyCount(location, partitionSchema, firstPartitionValues);
+            ValidatePartitionKeyNames(partitionSchema, firstPartitionValues);
+        }
+
+        private static void ValidatePartitionKeyCount(IOPath location, ParquetSchema partitionSchema, Dictionary<string, string> partitionValues) {
+            if(partitionValues.Count != partitionSchema.DataFields.Length) {
+                throw new InvalidOperationException($"{location} does not contain all partition keys.");
+            }
+        }
+
+        private static void ValidatePartitionKeyNames(ParquetSchema partitionSchema, Dictionary<string, string> partitionValues) {
+            foreach(string key in partitionSchema.DataFields.Select(f => f.Name)) {
+                if(!partitionValues.ContainsKey(key)) {
+                    throw new InvalidOperationException("Partition values must contain all partition keys.");
                 }
             }
         }

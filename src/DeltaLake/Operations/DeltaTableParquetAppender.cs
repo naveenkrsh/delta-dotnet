@@ -9,24 +9,44 @@ using Stowage;
 using Action = DeltaLake.Log.Actions.Action;
 
 namespace DeltaLake.Operations {
+
+    /// <summary>
+    /// This class is used to append Parquet files to a Delta table.
+    /// It will create a Delta table from the Parquet files and write the necessary metadata to the Delta log.
+    /// </summary>
     public class DeltaTableParquetAppender {
+
+        /// <summary>
+        /// This method appends Parquet files to a Delta table.
+        /// It will create a Delta table from the Parquet files and write the necessary metadata to the Delta log.
+        /// </summary>
+        /// <param name="storage"></param>
+        /// <param name="location"></param>
+        /// <param name="path"></param>
+        /// <param name="partitionSchema"></param>
+        /// <param name="partitionStrategy"></param>
+        /// <returns></returns>
+        /// <exception cref="TableNotFoundException"></exception>
+        /// <exception cref="ParquetFileNotFoundException"></exception>
         public static async Task AppendParquetAsync(IFileStorage storage,
             IOPath location,
             IOPath path,
             ParquetSchema? partitionSchema = null,
-            IPartitionStrategy? partitionStrategy = null ) {
+            IPartitionStrategy? partitionStrategy = null) {
 
-            if(partitionStrategy == null)
+            if(partitionStrategy == null) {
                 partitionStrategy = new HivePartitionStrategy();
+            }
 
             var log = new DeltaLog(storage, location);
             IReadOnlyCollection<LogCommit> history = await log.ReadHistoryAsync();
-            if(!history.Any())
+            if(!history.Any()) {
                 throw new TableNotFoundException();
+            }
 
             List<IOEntry> parquetFiles = new List<IOEntry>();
             IOPath fullPath = new IOPath(location, path);
-            if( !fullPath.ToString().EndsWith(".parquet")) {
+            if(!fullPath.ToString().EndsWith(".parquet")) {
                 IReadOnlyCollection<IOEntry> files = await storage.Ls(fullPath + "/", true);
                 parquetFiles = files
                     .Where(e => e.Path.IsFile && e.Name.EndsWith(".parquet"))
@@ -36,8 +56,9 @@ namespace DeltaLake.Operations {
                 parquetFiles.Add(parquetIOEntry);
             }
 
-            if(parquetFiles.Count == 0)
+            if(parquetFiles.Count == 0) {
                 throw new ParquetFileNotFoundException();
+            }
 
             List<Dictionary<string, string>> partitionValuesList = ParquetUtil.ExtractPartitionValues(partitionStrategy, parquetFiles);
 
@@ -47,7 +68,7 @@ namespace DeltaLake.Operations {
             JsonElement commitInfo = DeltaTableUtil.CreateCommitInfo(OperationEnum.MANUAL_UPDATE);
             actions.Add(new CommitInfo(commitInfo));
 
-            ParquetProcessingResult parquetProcessingResult = await ParquetUtil.ProcessParquetFilesAsync(storage, location, parquetFiles,partitionStrategy);
+            ParquetProcessingResult parquetProcessingResult = await ParquetUtil.ProcessParquetFilesAsync(storage, location, parquetFiles, partitionStrategy);
 
             //TODO: Check if schema is changed then add the metadata action
 
