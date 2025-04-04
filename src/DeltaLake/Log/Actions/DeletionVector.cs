@@ -14,7 +14,7 @@ namespace DeltaLake.Log.Actions {
         /// - If storageType = 'i' then <base85 encoded bytes>: The deletion vector is stored inline in the log. The format used is the RoaringBitmapArray format also used when the DV is stored on disk and described in Deletion Vector Format.
         /// - If storageType = 'p' then <absolute path>: The DV is stored in a file with an absolute path given by this path, which has the same format as the path field in the add/remove actions.
         /// </summary>
-        [JsonPropertyName("pathOrInlineDb")]
+        [JsonPropertyName("pathOrInlineDv")]
         public string? PathOrInlineDv { get; set; }
 
         /// <summary>

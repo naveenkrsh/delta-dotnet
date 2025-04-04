@@ -1,13 +1,19 @@
-﻿namespace DeltaLake.Log.Actions {
+﻿using System.Text.Json.Serialization;
+
+namespace DeltaLake.Log.Actions {
     public class MetadataFormat {
         /// <summary>
         /// Name of the encoding for files in this table
         /// </summary>
+        /// 
+        [JsonPropertyName("provider")]
         public string Provider { get; set; } = "parquet";
 
         /// <summary>
         /// A map containing configuration options for the format
         /// </summary>
+        /// 
+        [JsonPropertyName("options")]
         public Dictionary<string, string> Options { get; set; } = new Dictionary<string, string>();
 
         public override string ToString() => Provider;

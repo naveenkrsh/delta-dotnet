@@ -6,6 +6,7 @@ using DeltaLake.Operations.Models;
 using DeltaLake.Operations.Utils;
 using Parquet.Schema;
 using Stowage;
+using Action = DeltaLake.Log.Actions.Action;
 
 namespace DeltaLake.Operations {
     public class DeltaTableConverter {
@@ -48,16 +49,16 @@ namespace DeltaLake.Operations {
 
             ParquetUtil.ValidateAndEnsurePartitioning(location, partitionSchema, partitionValuesList);
 
-            var commitLines = new List<CommitLine>();
+            var actions = new List<Action>();
 
             JsonElement commitInfo = DeltaTableUtil.CreateCommitInfo(OperationEnum.CREATE_TABLE);
-            commitLines.Add(new CommitLine() { Commit = commitInfo });
+            actions.Add(new CommitInfo(commitInfo));
 
             var protocolEvolution = new ProtocolEvolution {
                 MinReaderVersion = 1,
                 MinWriterVersion = 2
             };
-            commitLines.Add(new CommitLine() { Protocol = protocolEvolution });
+            actions.Add(protocolEvolution);
 
             ParquetProcessingResult parquetProcessingResult = await ParquetUtil.ProcessParquetFilesAsync(storage, location, parquetFiles, partitionStrategy);
 
@@ -72,9 +73,9 @@ namespace DeltaLake.Operations {
                 PartitionColumns = partitionValuesList.Any() ? partitionValuesList.First().Keys.ToArray() : Array.Empty<string>(),
                 Configuration = new Dictionary<string, string>()
             };
-            commitLines.Add(new CommitLine() { MetaData = metadata });
-            commitLines.AddRange(parquetProcessingResult.GenerateCommitLinesFromActions());
-            await log.WriteJsonAsCommitAsync(commitLines, 0);
+            actions.Add(metadata);
+            actions.AddRange(parquetProcessingResult.Actions);
+            await log.WriteJsonAsCommitAsync(actions, 0);
         }
     }
 

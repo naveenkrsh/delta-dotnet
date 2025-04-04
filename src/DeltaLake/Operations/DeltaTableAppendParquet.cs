@@ -6,6 +6,7 @@ using DeltaLake.Operations.Models;
 using DeltaLake.Operations.Utils;
 using Parquet.Schema;
 using Stowage;
+using Action = DeltaLake.Log.Actions.Action;
 
 namespace DeltaLake.Operations {
     public class DeltaTableAppendParquet {
@@ -26,7 +27,7 @@ namespace DeltaLake.Operations {
             List<IOEntry> parquetFiles = new List<IOEntry>();
             IOPath fullPath = new IOPath(location, path);
             if( !fullPath.ToString().EndsWith(".parquet")) {
-                IReadOnlyCollection<IOEntry> files = files = await storage.Ls(fullPath + "/", true);
+                IReadOnlyCollection<IOEntry> files = await storage.Ls(fullPath + "/", true);
                 parquetFiles = files
                     .Where(e => e.Path.IsFile && e.Name.EndsWith(".parquet"))
                     .ToList();
@@ -42,17 +43,17 @@ namespace DeltaLake.Operations {
 
             ParquetUtil.ValidateAndEnsurePartitioning(location, partitionSchema, partitionValuesList);
 
-            var commitLines = new List<CommitLine>();
+            var actions = new List<Action>();
             JsonElement commitInfo = DeltaTableUtil.CreateCommitInfo(OperationEnum.MANUAL_UPDATE);
-            commitLines.Add(new CommitLine() { Commit = commitInfo });
+            actions.Add(new CommitInfo(commitInfo));
 
             ParquetProcessingResult parquetProcessingResult = await ParquetUtil.ProcessParquetFilesAsync(storage, location, parquetFiles,partitionStrategy);
 
             //TODO: Check if schema is changed then add the metadata action
 
-            commitLines.AddRange(parquetProcessingResult.GenerateCommitLinesFromActions());
+            actions.AddRange(parquetProcessingResult.Actions);
             Table table = await Table.OpenAsync(storage, location);
-            await log.WriteJsonAsCommitAsync(commitLines, table.CurrentVersion + 1);
+            await log.WriteJsonAsCommitAsync(actions, table.CurrentVersion + 1);
         }
     }
 }

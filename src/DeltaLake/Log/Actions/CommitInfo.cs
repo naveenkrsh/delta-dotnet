@@ -7,6 +7,9 @@ namespace DeltaLake.Log.Actions {
     /// </summary>
     public class CommitInfo : Action {
         public CommitInfo(JsonElement je) : base(ActionType.CommitInfo) {
+            CommitJsonElement = je;
         }
+
+        public JsonElement CommitJsonElement { get; }
     }
 }

@@ -22,12 +22,14 @@ namespace DeltaLake.Log.Actions {
         /// A collection of features that a client must implement in order to correctly read this table (exist only when minReaderVersion is set to 3)
         /// </summary>
         [JsonPropertyName("readerFeatures")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string[]? ReaderFeatures { get; set; }
 
         /// <summary>
         /// A collection of features that a client must implement in order to correctly write this table (exist only when minWriterVersion is set to 7)
         /// </summary>
         [JsonPropertyName("writerFeatures")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string[]? WriterFeatures { get; set; }
     }
 }

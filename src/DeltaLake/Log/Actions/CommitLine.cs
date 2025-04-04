@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 using Parquet.Serialization.Attributes;
 
 namespace DeltaLake.Log.Actions {
-    public class CommitLine {
+    class CommitLine {
 
         [JsonPropertyName("txn")]
         public TransactionIdentifiers? Txn { get; set; }
@@ -22,6 +22,7 @@ namespace DeltaLake.Log.Actions {
 
         [JsonPropertyName("commitInfo")]
         [ParquetIgnore]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public JsonElement? Commit { get; set; }
 
         public Action ToAction() {

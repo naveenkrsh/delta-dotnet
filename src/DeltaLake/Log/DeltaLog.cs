@@ -1,5 +1,4 @@
-﻿using System.Text;
-using System.Text.Json;
+﻿using System.Text.Json;
 using DeltaLake.Log.Actions;
 using DeltaLake.Operations.Utils;
 using Parquet.Serialization;
@@ -81,6 +80,7 @@ namespace DeltaLake.Log {
             // filter out json entries with version less than max checkpoint
             return logEntries
                 .Where(e => e.Version >= maxCheckpointVersion)
+                .Where(e => !(e.IsJson && e.Version == maxCheckpointVersion))
                 .ToList();
         }
 
@@ -152,27 +152,101 @@ namespace DeltaLake.Log {
             return commits;
         }
 
-        public async Task WriteJsonAsCommitAsync(List<CommitLine> commitLines, long version) {
+
+        public async Task WriteJsonAsCommitAsync(List<Action> actions, long version) {
+            List<CommitLine> commitLines = GenerateCommitLine(actions);
+            await WriteJsonAsCommitAsync(commitLines, version);
+        }
+
+        public async Task WriteParquetAsClassicCheckPointAsync(List<Action> actions, long version) {
+            List<CommitLine> commitLines = GenerateCommitLine(actions);
+            await WriteParquetAsClassicCheckPointAsync(commitLines, version);
+        }
+
+        private async Task WriteJsonAsCommitAsync(List<CommitLine> commitLines, long version) {
             string deltaFile = FileNamesUtil.DeltaFile(DeltaLogDirName, version);
+
             var tempFile = new IOPath("tmp", Guid.NewGuid().ToString());
-            await using Stream stream = await _storage.OpenWrite(tempFile);
-            {
-                await using var writer = new StreamWriter(stream);
-                foreach(CommitLine commit in commitLines) {
-                    string s = JsonSerializer.Serialize(commit, new JsonSerializerOptions() {
-                        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
-                        Encoder = System.Text.Encodings.Web.JavaScriptEncoder
-                            .UnsafeRelaxedJsonEscaping,
-                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                    });
-                    await writer.WriteLineAsync(s);
+            using(Stream jsonStream = await _storage.OpenWrite(tempFile + ".json")) {
+                using(var writer = new StreamWriter(jsonStream)) {
+                    foreach(CommitLine commit in commitLines) {
+                        string s = JsonSerializer.Serialize(commit, new JsonSerializerOptions() {
+                            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault,
+                            Encoder = System.Text.Encodings.Web.JavaScriptEncoder
+                                .UnsafeRelaxedJsonEscaping,
+                            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                        });
+                        await writer.WriteLineAsync(s);
+                    }
                 }
             }
-            try {
-                await _storage.Ren(tempFile, new IOPath(_location, deltaFile));
-            } catch(Exception ex) {
-                await _storage.Rm(tempFile);   
+            await RenFile(_storage, new IOPath(tempFile + ".json"), new IOPath(_location, deltaFile));
+        }
+
+        private async Task WriteParquetAsClassicCheckPointAsync(List<CommitLine> commitLines, long version) {
+            var tempFile = new IOPath("tmp", Guid.NewGuid().ToString());
+            string classicCheckpointFile = FileNamesUtil.ClassicCheckPointFile(DeltaLogDirName, version);
+            var parquetCommitLines = new List<CommitLine>();
+            CommitLine? metadata = null;
+
+            foreach(CommitLine commitLine in commitLines) {
+                if(commitLine.Commit == null) {
+                    parquetCommitLines.Add(commitLine);
+                }
+                if(metadata == null && commitLine.MetaData != null) {
+                    metadata = commitLine;
+                }
             }
+
+            // Update metadata if necessary
+            if(metadata != null && metadata.MetaData?.PartitionColumns?.Length == 0) {
+                metadata.MetaData.PartitionColumns = null;
+            }
+
+            // Write parquet file
+            using(Stream parquetStream = await _storage.OpenWrite(tempFile + ".parquet")) {
+                await ParquetSerializer.SerializeAsync(parquetCommitLines, parquetStream);
+            }
+
+            // Rename the temporary file to the final destination
+            await RenFile(_storage, new IOPath(tempFile + ".parquet"), new IOPath(_location, classicCheckpointFile));
+        }
+
+        private List<CommitLine> GenerateCommitLine(List<Action> actions) {
+            var result = new List<CommitLine>();
+
+            foreach(Action action in actions) {
+                switch(action) {
+                    case CommitInfo commitInfo:
+                        result.Add(new CommitLine { Commit = commitInfo.CommitJsonElement });
+                        break;
+                    case ProtocolEvolution protocol:
+                        result.Add(new CommitLine { Protocol = protocol });
+                        break;
+                    case Metadata metadata:
+                        result.Add(new CommitLine { MetaData = metadata });
+                        break;
+                    case AddFile addFile:
+                        result.Add(new CommitLine { Add = addFile });
+                        break;
+                }
+            }
+
+            return result;
+        }
+
+
+        private async Task RenFile(IFileStorage storage, IOPath oldPath, IOPath newPath, CancellationToken cancellationToken = default(CancellationToken)) {
+            using(Stream src = await storage.OpenRead(oldPath, cancellationToken)) {
+                if(src != null) {
+                    using(Stream dest = await storage.OpenWrite(newPath, cancellationToken)) {
+                        await src.CopyToAsync(dest);
+                    }
+
+                }
+            }
+
+            await storage.Rm(oldPath);
         }
     }
 }
