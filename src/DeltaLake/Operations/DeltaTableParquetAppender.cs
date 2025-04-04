@@ -9,7 +9,7 @@ using Stowage;
 using Action = DeltaLake.Log.Actions.Action;
 
 namespace DeltaLake.Operations {
-    public class DeltaTableAppendParquet {
+    public class DeltaTableParquetAppender {
         public static async Task AppendParquetAsync(IFileStorage storage,
             IOPath location,
             IOPath path,

@@ -18,7 +18,7 @@ namespace DeltaLake.Test.Operations
         public async Task AppendParquetAsync_ShouldThrowTableNotFoundException_WhenHistoryIsEmpty() {
             var location = new IOPath("test/location");
             var path = new IOPath("test/path");
-            await Assert.ThrowsAsync<TableNotFoundException>(() => DeltaTableAppendParquet.AppendParquetAsync(_storage, location, path));
+            await Assert.ThrowsAsync<TableNotFoundException>(() => DeltaTableParquetAppender.AppendParquetAsync(_storage, location, path));
         }
 
         [Fact]
@@ -26,7 +26,7 @@ namespace DeltaLake.Test.Operations
             var location = new IOPath("chinook", "track.partitioned.mediatypeid.parquet.addpartition");
             var path = new IOPath("test/path");
 
-            await Assert.ThrowsAsync<ParquetFileNotFoundException>(() => DeltaTableAppendParquet.AppendParquetAsync(_storage, location, path));
+            await Assert.ThrowsAsync<ParquetFileNotFoundException>(() => DeltaTableParquetAppender.AppendParquetAsync(_storage, location, path));
         }
 
         [Fact]
@@ -40,7 +40,7 @@ namespace DeltaLake.Test.Operations
             var partitionSchema = new ParquetSchema(
                 new DataField<int>("MediaTypeId")
             );
-            await DeltaTableAppendParquet.AppendParquetAsync(_storage, tablePath, partitionedPath, partitionSchema);
+            await DeltaTableParquetAppender.AppendParquetAsync(_storage, tablePath, partitionedPath, partitionSchema);
 
             Table table = await Table.OpenAsync(_storage, tablePath);
             Assert.Equal(2, table.History.Count);
@@ -60,7 +60,7 @@ namespace DeltaLake.Test.Operations
             var partitionSchema = new ParquetSchema(
                 new DataField<int>("MediaTypeId")
             );
-            await DeltaTableAppendParquet.AppendParquetAsync(_storage, tablePath, partitionedPath, partitionSchema);
+            await DeltaTableParquetAppender.AppendParquetAsync(_storage, tablePath, partitionedPath, partitionSchema);
 
             Table table = await Table.OpenAsync(_storage, tablePath);
             Assert.Equal(2, table.History.Count);
@@ -75,7 +75,7 @@ namespace DeltaLake.Test.Operations
             await _storage.Rm(new IOPath("chinook", "artist.simple.parquet.addparquet", "_delta_log", "00000000000000000001.json"));
             var tablePath = new IOPath("chinook", "artist.simple.parquet.addparquet");
             var parquetPath = new IOPath("part-00000-df960eb7-f439-480a-b59b-c145d2da0a1d-c001.snappy.parquet");
-            await DeltaTableAppendParquet.AppendParquetAsync(_storage, tablePath, parquetPath);
+            await DeltaTableParquetAppender.AppendParquetAsync(_storage, tablePath, parquetPath);
 
             Table table = await Table.OpenAsync(_storage, tablePath);
             Assert.Equal(2, table.History.Count);
