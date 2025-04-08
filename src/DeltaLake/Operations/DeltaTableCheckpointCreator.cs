@@ -7,7 +7,7 @@ namespace DeltaLake.Operations {
     /// This class is responsible for creating a classic checkpoint for a Delta table.
     /// It reads the Delta log history and writes the actions to a Parquet file.
     /// </summary>
-    public class DeltaTableCheckpointCreator {
+    internal class DeltaTableCheckpointCreator {
         /// <summary>
         /// Creates a classic checkpoint for a Delta table.
         /// This method reads the Delta log history and writes the actions to a Parquet file.

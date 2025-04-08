@@ -10,13 +10,5 @@ namespace DeltaLake.Operations.Models {
             ParquetSchemas = parquetSchemas;
             Actions = actions;
         }
-
-        public List<CommitLine> GenerateCommitLinesFromActions() {
-            var commitLines = new List<CommitLine>();
-            foreach(AddFile action in Actions) {
-                commitLines.Add(new CommitLine() { Add = action });
-            }
-            return commitLines;
-        }
     }
 }

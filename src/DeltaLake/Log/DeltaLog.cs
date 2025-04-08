@@ -166,8 +166,8 @@ namespace DeltaLake.Log {
         private async Task WriteJsonAsCommitAsync(List<CommitLine> commitLines, long version) {
             string deltaFile = FileNamesUtil.DeltaFile(DeltaLogDirName, version);
 
-            var tempFile = new IOPath("tmp", Guid.NewGuid().ToString());
-            using(Stream jsonStream = await _storage.OpenWrite(tempFile + ".json")) {
+            var tempFile = new IOPath("tmp", Guid.NewGuid().ToString(), ".json");
+            using(Stream jsonStream = await _storage.OpenWrite(tempFile)) {
                 using(var writer = new StreamWriter(jsonStream)) {
                     foreach(CommitLine commit in commitLines) {
                         string s = JsonSerializer.Serialize(commit, new JsonSerializerOptions() {
@@ -180,11 +180,11 @@ namespace DeltaLake.Log {
                     }
                 }
             }
-            await RenFile(_storage, new IOPath(tempFile + ".json"), new IOPath(_location, deltaFile));
+            await RenFile(_storage, new IOPath(tempFile), new IOPath(_location, deltaFile));
         }
 
         private async Task WriteParquetAsClassicCheckPointAsync(List<CommitLine> commitLines, long version) {
-            var tempFile = new IOPath("tmp", Guid.NewGuid().ToString());
+            var tempFile = new IOPath("tmp", Guid.NewGuid().ToString(), ".parquet");
             string classicCheckpointFile = FileNamesUtil.ClassicCheckPointFile(DeltaLogDirName, version);
             var parquetCommitLines = new List<CommitLine>();
             CommitLine? metadata = null;
@@ -204,12 +204,12 @@ namespace DeltaLake.Log {
             }
 
             // Write parquet file
-            using(Stream parquetStream = await _storage.OpenWrite(tempFile + ".parquet")) {
+            using(Stream parquetStream = await _storage.OpenWrite(tempFile)) {
                 await ParquetSerializer.SerializeAsync(parquetCommitLines, parquetStream);
             }
 
             // Rename the temporary file to the final destination
-            await RenFile(_storage, new IOPath(tempFile + ".parquet"), new IOPath(_location, classicCheckpointFile));
+            await RenFile(_storage, new IOPath(tempFile), new IOPath(_location, classicCheckpointFile));
         }
 
         private List<CommitLine> GenerateCommitLine(List<Action> actions) {

@@ -14,7 +14,7 @@ namespace DeltaLake.Operations {
     /// This class is used to append Parquet files to a Delta table.
     /// It will create a Delta table from the Parquet files and write the necessary metadata to the Delta log.
     /// </summary>
-    public class DeltaTableParquetAppender {
+    internal class DeltaTableParquetAppender {
 
         /// <summary>
         /// This method appends Parquet files to a Delta table.

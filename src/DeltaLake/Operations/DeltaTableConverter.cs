@@ -14,7 +14,7 @@ namespace DeltaLake.Operations {
     /// This class is used to convert a Parquet table to a Delta table.
     /// It will create a Delta table from the Parquet files and write the necessary metadata to the Delta log.
     /// </summary>
-    public class DeltaTableConverter {
+    internal class DeltaTableConverter {
         /// <summary>
         /// This method converts a Parquet table to a Delta table.
         /// It will create a Delta table from the Parquet files and write the necessary metadata to the Delta log.
