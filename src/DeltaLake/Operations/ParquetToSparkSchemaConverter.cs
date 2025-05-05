@@ -3,7 +3,7 @@ using Parquet.Schema;
 namespace DeltaLake.Operations {
     internal class ParquetToSparkSchemaConverter {
         public static string ConvertToSparkJsonSchema(ParquetSchema parquetSchema) {
-            var fields = new List<string>();
+            List<string> fields = new List<string>();
 
             foreach(DataField field in parquetSchema.DataFields) {
                 fields.Add(ConvertFieldToSparkJson(field));

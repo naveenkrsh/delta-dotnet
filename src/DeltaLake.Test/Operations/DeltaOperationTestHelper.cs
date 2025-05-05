@@ -17,5 +17,23 @@
                 CopyDirectory(subDir, destSubDir);
             }
         }
+
+        public static void CopyDirectoryIfNotExists(string source, string targetPath) {
+            if(!Directory.Exists(targetPath)) {
+                Directory.CreateDirectory(targetPath);
+            }
+
+            if(!Directory.EnumerateFileSystemEntries(targetPath).Any()) {
+                DeltaOperationTestHelper.CopyDirectory(
+                    source,
+                    targetPath
+                );
+            }
+        }
+
+        public static void DeleteDeltaLogFolder(string path) {
+            if(Directory.Exists(Path.Combine(path, "_delta_log")))
+                Directory.Delete(Path.Combine(path, "_delta_log"), recursive: true);
+        }
     }
 }

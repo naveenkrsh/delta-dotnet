@@ -54,7 +54,7 @@ namespace DeltaLake.Operations.Utils {
             string jsonString = JsonSerializer.Serialize(obj, new JsonSerializerOptions {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             });
-            var doc = JsonDocument.Parse(jsonString);
+            JsonDocument doc = JsonDocument.Parse(jsonString);
             return doc.RootElement;
         }
     }

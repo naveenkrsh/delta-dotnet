@@ -5,85 +5,71 @@ using Stowage;
 using Xunit;
 
 namespace DeltaLake.Test.Operations {
-    public class DeltaTableConverterTest
-    {
+    public class DeltaTableConverterTest {
         private readonly IFileStorage _storage;
-        private readonly IOPath _simpleTablePath = new("chinook", "artist.simple.parquet");
-        private readonly IOPath _partitionedMediatypeidTablePath = new("chinook", "track.partitioned.mediatypeid.parquet");
         private readonly string _dataPath = Path.GetFullPath("data");
-
-        public DeltaTableConverterTest()
-        {
+        public DeltaTableConverterTest() {
             _storage = Files.Of.LocalDisk(_dataPath);
-
             string artistSimpleParquetPath = Path.Combine(_dataPath, "chinook", "artist.simple.parquet");
             string trackPartitionedMediatypeidParquetPath = Path.Combine(_dataPath, "chinook", "track.partitioned.mediatypeid.parquet");
 
-            if (!Directory.Exists(artistSimpleParquetPath))
-            {
-                Directory.CreateDirectory(artistSimpleParquetPath);
-            }
+            DeltaOperationTestHelper.CopyDirectoryIfNotExists(
+                Path.Combine(_dataPath, "chinook", "artist.simple"),
+                artistSimpleParquetPath);
 
-            if (!Directory.EnumerateFileSystemEntries(artistSimpleParquetPath).Any())
-            {
-                DeltaOperationTestHelper.CopyDirectory(
-                    Path.Combine(_dataPath, "chinook", "artist.simple"),
-                    artistSimpleParquetPath
-                );
-            }
-            if (Directory.Exists(Path.Combine(artistSimpleParquetPath, "_delta_log")))
-                Directory.Delete(Path.Combine(artistSimpleParquetPath, "_delta_log"), recursive: true);
+            DeltaOperationTestHelper.DeleteDeltaLogFolder(artistSimpleParquetPath);
 
-            if (!Directory.Exists(trackPartitionedMediatypeidParquetPath))
-            {
-                Directory.CreateDirectory(trackPartitionedMediatypeidParquetPath);
-            }
+            DeltaOperationTestHelper.CopyDirectoryIfNotExists(
+                Path.Combine(_dataPath, "chinook", "track.partitioned.mediatypeid"),
+                trackPartitionedMediatypeidParquetPath);
+            DeltaOperationTestHelper.DeleteDeltaLogFolder(trackPartitionedMediatypeidParquetPath);
+        }
 
-            if (!Directory.Exists(trackPartitionedMediatypeidParquetPath) ||
-                !Directory.EnumerateFileSystemEntries(trackPartitionedMediatypeidParquetPath).Any())
-            {
 
-                DeltaOperationTestHelper.CopyDirectory(
-                    Path.Combine(_dataPath, "chinook", "track.partitioned.mediatypeid"),
-                    trackPartitionedMediatypeidParquetPath
-                );
-            }
-            if (Directory.Exists(Path.Combine(trackPartitionedMediatypeidParquetPath, "_delta_log")))
-                Directory.Delete(Path.Combine(trackPartitionedMediatypeidParquetPath, "_delta_log"), recursive: true);
+
+        [Fact]
+        public async Task ConvertParquetToDeltaAsync_ShouldThrowTableAlreadyExistsException_WhenHistoryIsNotEmpty() {
+            IOPath location = new IOPath("chinook", "artist.simple.parquet");
+
+            await _storage.Rm(new IOPath("chinook", "artist.simple.parquet", "_delta_log"));
+            IOPath tablePath = new IOPath("chinook", "artist.simple.parquet");
+            var operations = DeltaTableOperations.Create(_storage, tablePath);
+            await operations.ConvertParquetToDeltaAsync();
+
+            var operations1 = DeltaTableOperations.Create(_storage, location);
+            await Assert.ThrowsAsync<TableAlreadyExistsException>(() => operations1.ConvertParquetToDeltaAsync());
         }
 
         [Fact]
-        public async Task ConvertParquetToDeltaAsync_ShouldThrowTableAlreadyExistsException_WhenHistoryIsNotEmpty()
-        {
-            await DeltaTableOperations.ConvertParquetToDeltaAsync(_storage, _simpleTablePath);
-            await Assert.ThrowsAsync<TableAlreadyExistsException>(() => DeltaTableOperations.ConvertParquetToDeltaAsync(_storage, _simpleTablePath));
+        public async Task ConvertParquetToDeltaAsync_ShouldThrowParquetFileNotFoundException_WhenNoParquetFilesFound() {
+            IOPath location = new IOPath("/test/location");
+            var operations = DeltaTableOperations.Create(_storage, location);
+            await Assert.ThrowsAsync<ParquetFileNotFoundException>(() => operations.ConvertParquetToDeltaAsync());
         }
 
         [Fact]
-        public async Task ConvertParquetToDeltaAsync_ShouldThrowParquetFileNotFoundException_WhenNoParquetFilesFound()
-        {
-            var location = new IOPath("/test/location");
-            await Assert.ThrowsAsync<ParquetFileNotFoundException>(() => DeltaTableOperations.ConvertParquetToDeltaAsync(_storage, location));
-        }
+        public async Task ConvertParquetToDeltaAsync_ShouldCreateNewTable_WhenNoHistoryExists() {
+            await _storage.Rm(new IOPath("chinook", "artist.simple.parquet", "_delta_log"));
+            IOPath tablePath = new IOPath("chinook", "artist.simple.parquet");
+            var operations = DeltaTableOperations.Create(_storage, tablePath);
+            await operations.ConvertParquetToDeltaAsync();
 
-        [Fact]
-        public async Task ConvertParquetToDeltaAsync_ShouldCreateNewTable_WhenNoHistoryExists()
-        {
-            await DeltaTableOperations.ConvertParquetToDeltaAsync(_storage, _simpleTablePath);
-
-            Table table = await Table.OpenAsync(_storage, _simpleTablePath);
+            Table table = await Table.OpenAsync(_storage, tablePath);
             Assert.Single(table.History);
         }
 
         [Fact]
-        public async Task ConvertParquetToDeltaAsync_ShouldCreateNewTable_WithMediaTypeIdPartition()
-        {
-            var partitionSchema = new ParquetSchema(
+        public async Task ConvertParquetToDeltaAsync_ShouldCreateNewTable_WithMediaTypeIdPartition() {
+            await _storage.Rm(new IOPath("chinook", "track.partitioned.mediatypeid.parquet", "_delta_log"));
+            IOPath tablePath = new IOPath("chinook", "track.partitioned.mediatypeid.parquet");
+
+            ParquetSchema partitionSchema = new ParquetSchema(
                 new DataField<int>("MediaTypeId")
             );
-            await DeltaTableOperations.ConvertParquetToDeltaAsync(_storage, _partitionedMediatypeidTablePath, partitionSchema);
+            var operations = DeltaTableOperations.Create(_storage, tablePath);
+            await operations.ConvertParquetToDeltaAsync(partitionSchema);
 
-            Table table = await Table.OpenAsync(_storage, _partitionedMediatypeidTablePath);
+            Table table = await Table.OpenAsync(_storage, tablePath);
             Assert.Single(table.History);
         }
     }

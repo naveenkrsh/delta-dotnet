@@ -1,63 +1,73 @@
-﻿using Parquet.Schema;
+﻿using DeltaLake.Operations.Commands;
+using DeltaLake.Operations.Factories;
+using Parquet.Schema;
 using Stowage;
 
-namespace DeltaLake.Operations {
-    public class DeltaTableOperations {
+namespace DeltaLake.Operations
+{
+    /// <summary>
+    /// Facade for Delta table operations with enhanced performance through caching.
+    /// </summary>
+    public class DeltaTableOperations
+    {
+        private readonly DeltaTableOperationFactory _factory;
+
+        private DeltaTableOperations(IFileStorage storage, IOPath location)
+        {
+            _factory = new DeltaTableOperationFactory(storage, location);
+        }
+
+        /// <summary>
+        /// Creates a new instance of DeltaTableOperations.
+        /// </summary>
+        public static DeltaTableOperations Create(IFileStorage storage, IOPath location)
+        {
+            return new DeltaTableOperations(storage, location);
+        }
+
         /// <summary>
         /// Converts a Parquet table to a Delta table.
         /// </summary>
-        /// <param name="storage">The file storage interface.</param>
-        /// <param name="location">The location of the Parquet table.</param>
-        /// <param name="partitionSchema">Optional partition schema.</param>
-        /// <param name="partitionStrategy">Optional partition strategy.</param>
-        public static async Task ConvertParquetToDeltaAsync(
-            IFileStorage storage,
-            IOPath location,
+        public async Task ConvertParquetToDeltaAsync(
             ParquetSchema? partitionSchema = null,
-            IPartitionStrategy? partitionStrategy = null) {
-            await DeltaTableConverter.ConvertParquetToDeltaAsync(
-                storage,
-                location,
-                partitionSchema,
-                partitionStrategy
-            );
+            IPartitionStrategy? partitionStrategy = null)
+        {
+            OperationParameters parameters = new OperationParameters
+            {
+                PartitionSchema = partitionSchema,
+                PartitionStrategy = partitionStrategy
+            };
+
+            IDeltaTableOperation operation = _factory.CreateOperation(OperationType.ConvertParquetToDelta, parameters);
+            await operation.ExecuteAsync();
         }
 
         /// <summary>
         /// Creates a checkpoint for a Delta table.
         /// </summary>
-        /// <param name="storage">The file storage interface.</param>
-        /// <param name="location">The location of the Delta table.</param>
-        public static async Task CreateClassisCheckpointAsync(
-            IFileStorage storage,
-            IOPath location) {
-            await DeltaTableCheckpointCreator.CreateClassisCheckpointAsync(
-                storage,
-                location
-            );
+        public async Task CreateClassicCheckpointAsync()
+        {
+            IDeltaTableOperation operation = _factory.CreateOperation(OperationType.CreateCheckpoint, new OperationParameters());
+            await operation.ExecuteAsync();
         }
 
         /// <summary>
         /// Appends Parquet files to a Delta table.
         /// </summary>
-        /// <param name="storage">The file storage interface.</param>
-        /// <param name="location">The location of the Delta table.</param>
-        /// <param name="path">The path to the Parquet files.</param>
-        /// <param name="partitionSchema">Optional partition schema.</param>
-        /// <param name="partitionStrategy">Optional partition strategy.</param>
-        public static async Task AppendParquetAsync(
-            IFileStorage storage,
-            IOPath location,
-            IOPath path,
+        public async Task AppendParquetAsync(
+            IOPath sourcePath,
             ParquetSchema? partitionSchema = null,
-            IPartitionStrategy? partitionStrategy = null) {
-            await DeltaTableParquetAppender.AppendParquetAsync(
-                storage,
-                location,
-                path,
-                partitionSchema,
-                partitionStrategy
-            );
+            IPartitionStrategy? partitionStrategy = null)
+        {
+            OperationParameters parameters = new OperationParameters
+            {
+                SourcePath = sourcePath,
+                PartitionSchema = partitionSchema,
+                PartitionStrategy = partitionStrategy
+            };
+
+            IDeltaTableOperation operation = _factory.CreateOperation(OperationType.AppendParquet, parameters);
+            await operation.ExecuteAsync();
         }
     }
 }

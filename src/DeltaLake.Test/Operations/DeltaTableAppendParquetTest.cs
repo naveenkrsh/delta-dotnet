@@ -17,15 +17,16 @@ namespace DeltaLake.Test.Operations {
         public async Task AppendParquetAsync_ShouldThrowTableNotFoundException_WhenHistoryIsEmpty() {
             var location = new IOPath("test/location");
             var path = new IOPath("test/path");
-            await Assert.ThrowsAsync<TableNotFoundException>(() => DeltaTableOperations.AppendParquetAsync(_storage, location, path));
+            var operations = DeltaTableOperations.Create(_storage, location);
+            await Assert.ThrowsAsync<TableNotFoundException>(() => operations.AppendParquetAsync(path));
         }
 
         [Fact]
         public async Task AppendParquetAsync_ShouldThrowParquetFileNotFoundException_WhenNoParquetFilesFound() {
             var location = new IOPath("chinook", "track.partitioned.mediatypeid.parquet.addpartition");
             var path = new IOPath("test/path");
-
-            await Assert.ThrowsAsync<ParquetFileNotFoundException>(() => DeltaTableOperations.AppendParquetAsync(_storage, location, path));
+            var operations = DeltaTableOperations.Create(_storage, location);
+            await Assert.ThrowsAsync<ParquetFileNotFoundException>(() => operations.AppendParquetAsync(path));
         }
 
         [Fact]
@@ -34,18 +35,21 @@ namespace DeltaLake.Test.Operations {
             await _storage.Rm(new IOPath("chinook", "track.partitioned.mediatypeid.parquet.addpartition", "_delta_log", "00000000000000000001.json"));
             var tablePath = new IOPath("chinook", "track.partitioned.mediatypeid.parquet.addpartition");
             PrepareTestTable("track.partitioned.mediatypeid.parquet.addpartition");
-            var partitionedPath = new IOPath("MediaTypeId=6");
+            var partitionedPath = new IOPath("MediaTypeId=6/");
 
+            var operations = DeltaTableOperations.Create(_storage, tablePath);
             var partitionSchema = new ParquetSchema(
                 new DataField<int>("MediaTypeId")
             );
-            await DeltaTableOperations.AppendParquetAsync(_storage, tablePath, partitionedPath, partitionSchema);
+            await operations.AppendParquetAsync(partitionedPath, partitionSchema);
 
             Table table = await Table.OpenAsync(_storage, tablePath);
             Assert.Equal(2, table.History.Count);
             Assert.Equal(6, table.DataFiles.Count);
             Assert.Equal(2, table.Versions.Count);
-            Assert.Equal(table.Versions, [0, 1]);
+            Assert.Collection(table.Versions,
+                v => Assert.Equal(0, v),
+                v => Assert.Equal(1, v));
         }
         [Fact]
         public async Task AppendParquetAsync_ShouldProcessParquetFiles_WhenValidDataTrackPartitionedByMediaTypeIdFile() {
@@ -57,44 +61,36 @@ namespace DeltaLake.Test.Operations {
 
             var partitionedPath = new IOPath("MediaTypeId=6/part-00000-22275672-2cd9-47f8-aba4-a02e8a445fb7.c000.snappy.parquet");
 
+            var operations = DeltaTableOperations.Create(_storage, tablePath);
             var partitionSchema = new ParquetSchema(
                 new DataField<int>("MediaTypeId")
             );
-            await DeltaTableOperations.AppendParquetAsync(_storage, tablePath, partitionedPath, partitionSchema);
+            await operations.AppendParquetAsync(partitionedPath, partitionSchema);
 
             Table table = await Table.OpenAsync(_storage, tablePath);
             Assert.Equal(2, table.History.Count);
             Assert.Equal(6, table.DataFiles.Count);
             Assert.Equal(2, table.Versions.Count);
-            Assert.Equal(table.Versions, [0, 1]);
+            Assert.Collection(table.Versions,
+                v => Assert.Equal(0, v),
+                v => Assert.Equal(1, v));
         }
 
         private void PrepareTestTable(string table) {
             string trackPartitionedMediatypeidParquetPath = Path.Combine(_dataPath, "chinook", table);
-
-            if(!Directory.Exists(trackPartitionedMediatypeidParquetPath)) {
-                Directory.CreateDirectory(trackPartitionedMediatypeidParquetPath);
-            }
-
-            if(!Directory.EnumerateFileSystemEntries(trackPartitionedMediatypeidParquetPath).Any()) {
-                DeltaOperationTestHelper.CopyDirectory(
-                    Path.Combine(_dataPath, "chinook", "track.partitioned.mediatypeid"),
-                    trackPartitionedMediatypeidParquetPath
-                );
-            }
-
+            DeltaOperationTestHelper.CopyDirectoryIfNotExists(
+                Path.Combine(_dataPath, "chinook", "track.partitioned.mediatypeid"),
+                trackPartitionedMediatypeidParquetPath);
 
             string partition6 = Path.Combine(trackPartitionedMediatypeidParquetPath, "MediaTypeId=6");
-            if(!Directory.Exists(partition6)) {
-                Directory.CreateDirectory(partition6);
-            }
 
-            if(!Directory.EnumerateFileSystemEntries(partition6).Any()) {
-                DeltaOperationTestHelper.CopyDirectory(
-                    Path.Combine(_dataPath, "chinook", "track.partitioned.mediatypeid", "MediaTypeId=5"),
-                    partition6
-                );
-            }
+            DeltaOperationTestHelper.CopyDirectoryIfNotExists(
+                    Path.Combine(_dataPath, "chinook", "track.partitioned.mediatypeid"),
+                    trackPartitionedMediatypeidParquetPath);
+
+            DeltaOperationTestHelper.CopyDirectoryIfNotExists(
+                Path.Combine(_dataPath, "chinook", "track.partitioned.mediatypeid", "MediaTypeId=5"),
+                partition6);
         }
 
         [Fact]
@@ -127,13 +123,16 @@ namespace DeltaLake.Test.Operations {
             await _storage.Rm(new IOPath("chinook", "artist.simple.parquet.addparquet", "_delta_log", "00000000000000000001.json"));
             var tablePath = new IOPath("chinook", "artist.simple.parquet.addparquet");
             var parquetPath = new IOPath(destinationFileName);
-            await DeltaTableOperations.AppendParquetAsync(_storage, tablePath, parquetPath);
+            var operations = DeltaTableOperations.Create(_storage, tablePath);
+            await operations.AppendParquetAsync(parquetPath);
 
             Table table = await Table.OpenAsync(_storage, tablePath);
             Assert.Equal(2, table.History.Count);
             Assert.Equal(2, table.DataFiles.Count);
             Assert.Equal(2, table.Versions.Count);
-            Assert.Equal(table.Versions, [0, 1]);
+            Assert.Collection(table.Versions,
+                v => Assert.Equal(0, v),
+                v => Assert.Equal(1, v));
         }
     }
 }
