@@ -229,6 +229,11 @@ namespace DeltaLake.Log {
                     case AddFile addFile:
                         result.Add(new CommitLine { Add = addFile });
                         break;
+                    case RemoveFile removeFile:
+                        result.Add(new CommitLine { Remove = removeFile });
+                        break;
+                    default:
+                        throw new NotImplementedException(action.ToString());
                 }
             }
 
