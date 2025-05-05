@@ -26,12 +26,12 @@ namespace DeltaLake.Operations.Commands {
             _partitionStrategy = partitionStrategy ?? new HivePartitionStrategy();
         }
 
-        protected override async Task ValidateCoreAsync() {
+        protected override async Task ValidateCoreAsync(CancellationToken cancellationToken = default(CancellationToken)) {
             await DeltaOperationValidator.ValidateTableDoesNotExist(Storage);
             await DeltaOperationValidator.ValidateParquetFilesExist(Storage, Storage.Location + "/");
         }
 
-        protected override async Task ExecuteCoreAsync() {
+        protected override async Task ExecuteCoreAsync(CancellationToken cancellationToken = default(CancellationToken)) {
             IReadOnlyCollection<IOEntry> files = await Storage.CachedStorage.Ls(Storage.Location + "/", true);
             List<IOEntry> parquetFiles = files.Where(e => e.Path.IsFile && e.Name.EndsWith(".parquet")).ToList();
 

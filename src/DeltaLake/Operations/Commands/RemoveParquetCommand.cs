@@ -21,11 +21,11 @@ namespace DeltaLake.Operations.Commands {
             _parquetPath = new IOPath(Storage.Location, _sourcePath);
         }
 
-        protected override async Task ValidateCoreAsync() {
+        protected override async Task ValidateCoreAsync(CancellationToken cancellationToken = default(CancellationToken)) {
             await DeltaOperationValidator.ValidateTableExists(Storage);
         }
 
-        protected override async Task ExecuteCoreAsync() {
+        protected override async Task ExecuteCoreAsync(CancellationToken cancellationToken = default(CancellationToken)) {
             Table table = await Table.OpenAsync(Storage.UnderlyingStorage, Storage.Location);
 
             List<DataFile> dataFiles = table.DataFiles.Where(x => x.Path.ToString().Contains(_parquetPath)).ToList();

@@ -15,29 +15,29 @@ namespace DeltaLake.Operations.Commands
             Storage = storage ?? throw new ArgumentNullException(nameof(storage));
         }
 
-        public async Task ExecuteAsync()
+        public async Task ExecuteAsync(CancellationToken cancellationToken = default(CancellationToken))
         {
             if (!_isValidated)
             {
-                await ValidateAsync();
+                await ValidateAsync(cancellationToken);
             }
-            await ExecuteCoreAsync();
+            await ExecuteCoreAsync(cancellationToken);
         }
 
-        public async Task ValidateAsync()
+        public async Task ValidateAsync(CancellationToken cancellationToken = default(CancellationToken))
         {
-            await ValidateCoreAsync();
+            await ValidateCoreAsync(cancellationToken);
             _isValidated = true;
         }
 
         /// <summary>
         /// Core implementation of the operation execution.
         /// </summary>
-        protected abstract Task ExecuteCoreAsync();
+        protected abstract Task ExecuteCoreAsync(CancellationToken cancellationToken = default(CancellationToken));
 
         /// <summary>
         /// Core implementation of the operation validation.
         /// </summary>
-        protected abstract Task ValidateCoreAsync();
+        protected abstract Task ValidateCoreAsync(CancellationToken cancellationToken = default(CancellationToken));
     }
 }

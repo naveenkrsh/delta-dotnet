@@ -9,12 +9,12 @@ namespace DeltaLake.Operations.Commands
         /// Executes the Delta table operation.
         /// </summary>
         /// <returns>A task representing the asynchronous operation.</returns>
-        Task ExecuteAsync();
+        Task ExecuteAsync(CancellationToken cancellationToken = default(CancellationToken));
 
         /// <summary>
         /// Validates if the operation can be executed.
         /// </summary>
         /// <returns>A task representing the asynchronous validation operation.</returns>
-        Task ValidateAsync();
+        Task ValidateAsync(CancellationToken cancellationToken = default(CancellationToken));
     }
 }

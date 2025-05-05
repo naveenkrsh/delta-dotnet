@@ -10,12 +10,12 @@ namespace DeltaLake.Operations.Commands
     {
         public CreateCheckpointCommand(IDeltaStorage storage) : base(storage) { }
 
-        protected override async Task ValidateCoreAsync()
+        protected override async Task ValidateCoreAsync(CancellationToken cancellationToken = default(CancellationToken))
         {
             await DeltaOperationValidator.ValidateTableExists(Storage);
         }
 
-        protected override async Task ExecuteCoreAsync()
+        protected override async Task ExecuteCoreAsync(CancellationToken cancellationToken = default(CancellationToken))
         {
             Table table = await Table.OpenAsync(Storage.UnderlyingStorage, Storage.Location);
             List<DeltaLake.Log.Actions.Action> existingActions = table.History.SelectMany(x => x.Actions).ToList();
