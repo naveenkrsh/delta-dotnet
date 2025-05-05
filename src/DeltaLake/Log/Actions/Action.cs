@@ -1,9 +1,11 @@
 ﻿using System.Text.Json;
+using System.Text.Json.Serialization;
 using DeltaLake.Log.Actions;
 
 namespace DeltaLake.Log.Actions {
 
     public abstract class Action {
+        [JsonIgnore]
         public ActionType DeltaAction { get; set; }
 
         protected Action(ActionType action) {

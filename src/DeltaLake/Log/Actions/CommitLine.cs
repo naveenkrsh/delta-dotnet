@@ -22,6 +22,7 @@ namespace DeltaLake.Log.Actions {
 
         [JsonPropertyName("commitInfo")]
         [ParquetIgnore]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public JsonElement? Commit { get; set; }
 
         public Action ToAction() {

@@ -1,10 +1,11 @@
 ﻿using System.Text.Json;
 using DeltaLake.Log.Actions;
+using DeltaLake.Operations.Utils;
 using Parquet.Serialization;
 using Stowage;
+using Action = DeltaLake.Log.Actions.Action;
 
 namespace DeltaLake.Log {
-
     public class LogEntry {
         public LogEntry(IOEntry commitFile) {
             Entry = commitFile;
@@ -41,11 +42,11 @@ namespace DeltaLake.Log {
     /// Implements delta log protocol as per https://github.com/delta-io/delta/blob/master/PROTOCOL.md#delta-log-entries
     /// </summary>
     public class DeltaLog {
-
         public const string DeltaLogDirName = "_delta_log";
         public const string LastCheckpointFileName = "_last_checkpoint";
 
         private readonly IFileStorage _storage;
+
         private readonly IOPath _location;
         //private readonly List<IOEntry> _entries = new List<IOEntry>();
         //private readonly List<Action> _actions = new List<Action>();
@@ -79,6 +80,7 @@ namespace DeltaLake.Log {
             // filter out json entries with version less than max checkpoint
             return logEntries
                 .Where(e => e.Version >= maxCheckpointVersion)
+                .Where(e => !(e.IsJson && e.Version == maxCheckpointVersion))
                 .ToList();
         }
 
@@ -98,8 +100,8 @@ namespace DeltaLake.Log {
                     throw new ApplicationException("unparseable action: " + jsonLine);
 
                 commit.Actions.Add(cl.ToAction());
-
             }
+
             return commit;
         }
 
@@ -130,13 +132,11 @@ namespace DeltaLake.Log {
         }
 
         public async Task<IReadOnlyCollection<LogCommit>> ReadHistoryAsync() {
-
             var commits = new List<LogCommit>();
             IReadOnlyCollection<LogEntry> entries = await ListLogEntries();
             entries = CompactLogEntries(entries);
 
             foreach(LogEntry entry in entries) {
-
                 if(entry.IsJson) {
                     commits.Add(await ReadJsonAsCommit(entry));
                 } else if(entry.IsLastCheckpoint) {
@@ -150,6 +150,108 @@ namespace DeltaLake.Log {
             }
 
             return commits;
+        }
+
+
+        public async Task WriteJsonAsCommitAsync(List<Action> actions, long version) {
+            List<CommitLine> commitLines = GenerateCommitLine(actions);
+            await WriteJsonAsCommitAsync(commitLines, version);
+        }
+
+        public async Task WriteParquetAsClassicCheckPointAsync(List<Action> actions, long version) {
+            List<CommitLine> commitLines = GenerateCommitLine(actions);
+            await WriteParquetAsClassicCheckPointAsync(commitLines, version);
+        }
+
+        private async Task WriteJsonAsCommitAsync(List<CommitLine> commitLines, long version) {
+            string deltaFile = FileNamesUtil.DeltaFile(DeltaLogDirName, version);
+
+            var tempFile = new IOPath("tmp", Guid.NewGuid().ToString(), ".json");
+            using(Stream jsonStream = await _storage.OpenWrite(tempFile)) {
+                using(var writer = new StreamWriter(jsonStream)) {
+                    foreach(CommitLine commit in commitLines) {
+                        string s = JsonSerializer.Serialize(commit, new JsonSerializerOptions() {
+                            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault,
+                            Encoder = System.Text.Encodings.Web.JavaScriptEncoder
+                                .UnsafeRelaxedJsonEscaping,
+                            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                        });
+                        await writer.WriteLineAsync(s);
+                    }
+                }
+            }
+            await RenFile(_storage, new IOPath(tempFile), new IOPath(_location, deltaFile));
+        }
+
+        private async Task WriteParquetAsClassicCheckPointAsync(List<CommitLine> commitLines, long version) {
+            var tempFile = new IOPath("tmp", Guid.NewGuid().ToString(), ".parquet");
+            string classicCheckpointFile = FileNamesUtil.ClassicCheckPointFile(DeltaLogDirName, version);
+            var parquetCommitLines = new List<CommitLine>();
+            CommitLine? metadata = null;
+
+            foreach(CommitLine commitLine in commitLines) {
+                if(commitLine.Commit == null) {
+                    parquetCommitLines.Add(commitLine);
+                }
+                if(metadata == null && commitLine.MetaData != null) {
+                    metadata = commitLine;
+                }
+            }
+
+            // Update metadata if necessary
+            if(metadata != null && metadata.MetaData?.PartitionColumns?.Length == 0) {
+                metadata.MetaData.PartitionColumns = null;
+            }
+
+            // Write parquet file
+            using(Stream parquetStream = await _storage.OpenWrite(tempFile)) {
+                await ParquetSerializer.SerializeAsync(parquetCommitLines, parquetStream);
+            }
+
+            // Rename the temporary file to the final destination
+            await RenFile(_storage, new IOPath(tempFile), new IOPath(_location, classicCheckpointFile));
+        }
+
+        private List<CommitLine> GenerateCommitLine(List<Action> actions) {
+            var result = new List<CommitLine>();
+
+            foreach(Action action in actions) {
+                switch(action) {
+                    case CommitInfo commitInfo:
+                        result.Add(new CommitLine { Commit = commitInfo.CommitJsonElement });
+                        break;
+                    case ProtocolEvolution protocol:
+                        result.Add(new CommitLine { Protocol = protocol });
+                        break;
+                    case Metadata metadata:
+                        result.Add(new CommitLine { MetaData = metadata });
+                        break;
+                    case AddFile addFile:
+                        result.Add(new CommitLine { Add = addFile });
+                        break;
+                    case RemoveFile removeFile:
+                        result.Add(new CommitLine { Remove = removeFile });
+                        break;
+                    default:
+                        throw new NotImplementedException(action.ToString());
+                }
+            }
+
+            return result;
+        }
+
+
+        private async Task RenFile(IFileStorage storage, IOPath oldPath, IOPath newPath, CancellationToken cancellationToken = default(CancellationToken)) {
+            using(Stream src = await storage.OpenRead(oldPath, cancellationToken)) {
+                if(src != null) {
+                    using(Stream dest = await storage.OpenWrite(newPath, cancellationToken)) {
+                        await src.CopyToAsync(dest);
+                    }
+
+                }
+            }
+
+            await storage.Rm(oldPath);
         }
     }
 }
